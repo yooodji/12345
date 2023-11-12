@@ -1,26 +1,28 @@
 ﻿#include <iostream>
 #include <string>
 #include <fstream>
-#include <cstring>
-#include <string.h>
-#include <sstream>
+//#include <cstring>
+//#include <string.h>
+//#include <sstream>
 #include <conio.h>
 #include <iomanip>
-#include <chrono>
+//#include <chrono>
 #include <Windows.h>
 #include <vector>
 
 using namespace std;
 
+vector <string> isc_podl;//найденные в текущем предложении подлежащие
+int count_output = 0;//счетчик всех предложений
+
 string open_file(ifstream& in_p_t);//функция для открытия файла и проверки корректности введенного названия
 string out_sentence(ofstream& out_prog_text);//функция для открытия файла на вывод и проверка корректности введеного названия
-
-//struct sentence
-//{
-//	string date;
-//	sentence* ptr;
-//};
-
+bool mestoimenia(vector <string>& piece_of_sentence);
+bool imena(string first_word);
+bool find_skazyemoe(vector <string>& piece_of_sentence);
+bool side_of_podl(vector <string>& piece_of_sentence,int poz_skaz);//poz_skaz позиция рассматриваемого сказцемого выраженного глаголом 
+void analysis(vector <string>& piece_of_sentence);
+bool Capitalized_word(vector <string>& piece_of_sentence);
 
 int main()
 {
@@ -43,55 +45,79 @@ int main()
 	}
 	string buff_word;
 	vector <string> sentence;
+	int counter = 0;
 	while (!in_prog_text.eof())//пока не конец файла 
 	{
-		
+		++counter;
 		bool flag = false;
 		int i = 1;
 		while (!flag) // пока элемент слова не разделитель 
 		{
-			if (i == 1)
-			{
-				in_prog_text >> buff_word;
-			}
-			if ((buff_word[i] == '.') or (buff_word[i] == '!') or (buff_word[i] == '?'))//TO DO РАЗДЕЛИТЕЛЬ ИСКАТЬ С КОНЦА 
+			in_prog_text >> buff_word;
+			if ((buff_word[buff_word.size() - 1] == '.') or (buff_word[buff_word.size() - 1] == '!') or (buff_word[buff_word.size() - 1] == '?'))
 			{
 				flag = true;
-				++i;//для знака разделителя предложений
-			}
-			if (i == buff_word.size())
-			{
 				sentence.push_back(buff_word);
-				buff_word = "";
-				i = 1;//так как рассматриваем новое слово
 			}
 			else
 			{
-				++i;
+				sentence.push_back(buff_word);
+				buff_word = "";
 			}
-			
 		}
 		
-
-		//вызов функции анализатора
-
-		//for (int i = 0; i < sentence.size();++i)
+		int counter = 0;
+		string new_word;
+		vector <string> piece_of_sentence;
+		bool No_commas = false;//флаг если нет запятой
+		while (counter < sentence.size())//разбиение предложения на подпредложения
+		{
+			new_word = sentence[counter];//для работы со string
+			piece_of_sentence.push_back(new_word);
+			if (new_word[new_word.length() - 1] == ',' or new_word[new_word.length() - 1] == '.' or new_word[new_word.size() - 1] == '!' or new_word[new_word.size() - 1] == '?')
+			{
+				No_commas = true;
+				analysis(piece_of_sentence);//вызываем функцию анализатора
+				piece_of_sentence.clear();
+			}
+			++counter;
+		}
+		//if (No_commas == false)
 		//{
-		//	out_prog_text << sentence.at(i);
-		//	cout << sentence.at(i);
+		//	analysis(piece_of_sentence);//вызываем функцию анализатора
 		//}
+		
+		
+		cout << "Найденые подлежащие: ";
+		out_prog_text << "Найденые подлежащие: ";
+		for (int i = 0; i < isc_podl.size(); ++i)
+		{
+			out_prog_text << isc_podl[i];
+			cout << isc_podl[i];
+			out_prog_text << " ";
+			cout << " ";
+		}
+		if (isc_podl.size() == 0)
+		{
+			cout << "Подлежащее не найдено";
+			out_prog_text << "Подлежащее не найдено";
+		}
+		
+		out_prog_text << " || Искомое предложение: ";
+		out_prog_text << counter << ") ";
+		cout << " || Искомое предложение: ";
+		cout << counter << ") ";
 		for (int i = 0; i < sentence.size();++i)
 		{
 			out_prog_text << sentence[i];
 			cout << sentence[i];
+			out_prog_text << " ";
+			cout << " ";
 		}
+		out_prog_text << endl;
+		cout << endl;
 		sentence.clear();
-		/*for (string sentc : sentence)
-		{
-			out_prog_text << sentc;
-			cout << sentc;
-		}*/
-
+		isc_podl.clear();
 	
 	}
 	in_prog_text.close();
@@ -100,7 +126,27 @@ int main()
 }
 
 
+void analysis(vector <string>& piece_of_sentence)
+{
+	bool flag_spec = false;
+	char break_point = 0;//номер аналзируемого признака
+	while (!flag_spec)
+	{
 
+		++break_point;
+		switch (break_point)
+		{
+		case 1: flag_spec = mestoimenia(piece_of_sentence);
+			break;
+		case 2: flag_spec = Capitalized_word(piece_of_sentence);//imena(piece_of_sentence)
+			break;
+		case 3: flag_spec = find_skazyemoe(piece_of_sentence);
+			break;
+		case 4: flag_spec = true;//что бы выйти
+			break;
+		}
+	}
+}
 
 string open_file(ifstream& in_p_t)//функция для открытия файла и проверки корректности введенного названия
 {
@@ -195,4 +241,267 @@ string out_sentence(ofstream& out_prog_text)
 }
 
 
+bool mestoimenia(vector <string>& piece_of_sentence)
+{
+	
+	ifstream mestoim;
+	mestoim.open("местоимения.txt");
+	string mesto;//здесь будет хранится местоимение взятое из файла
+	if (!mestoim.is_open())
+	{
+		cout << "Файл местоимений не открыт" << endl;
+	}
 
+	while (!mestoim.eof())
+	{
+		mestoim >> mesto;
+		for (int i = 0; i < piece_of_sentence.size(); ++i)
+		{
+			if (i == piece_of_sentence.size() - 1)
+			{
+				string last_word = piece_of_sentence[i];
+				last_word.erase(last_word.end() - 1);
+				if (last_word == mesto)//                                        ДУМАЮ МОЖНО ЛУЧШЕ НАПИСАТЬ
+				{
+					isc_podl.push_back(mesto);
+					return  true;
+				}
+			}
+			if (piece_of_sentence[i] == mesto)
+			{
+				isc_podl.push_back(mesto);
+				return  true;
+			}
+
+		}
+	}
+	mestoim.close();
+	return false;
+}
+
+bool imena(string first_word)
+{
+	ifstream imena;
+	imena.open("имена.txt");
+	string im;
+	if (!imena.is_open())
+	{
+		cout << "Файл имён не открыт" << endl;
+	}
+	while (!imena.eof())                                                                
+	{
+		if (first_word[first_word.length() - 1] == '.' or first_word[first_word.length() - 1] == '!' or first_word[first_word.length() - 1] == '?')
+		{
+			first_word.erase(first_word.end() - 1);
+		}
+		imena >> im;
+		if (first_word == im)
+		{
+			return true;
+		}
+	}
+	imena.close();
+	return false;
+}
+
+
+bool Capitalized_word(vector <string>& piece_of_sentence)
+{
+	int i = 0;//счетчик элементов вектора
+	bool capital_first = false;
+	while (i < piece_of_sentence.size())
+	{
+		if (i == 0)
+		{
+			string first_word = piece_of_sentence[i];
+			capital_first = imena(first_word);
+			if (capital_first == true)
+			{
+				isc_podl.push_back(first_word);
+				return true;
+			}
+		}
+		else
+		{
+			string anyword = piece_of_sentence[i];
+			if (anyword[0] > 'А' and anyword[0] < 'Я')
+			{
+				isc_podl.push_back(anyword);
+				return true;
+			}
+		}
+		++i;
+		
+	}
+
+	return capital_first;
+}
+
+bool find_skazyemoe(vector <string>& piece_of_sentence)
+{
+	ifstream skaz;
+	skaz.open("окончание глаголов.txt");
+	string ending;//здесь будет хранится окончание взятое из файла
+	if (!skaz.is_open())
+	{
+		cout << "Файл местоимений не открыт" << endl;
+	}
+	int i = 0;
+	bool ska = false;
+	char brakepoint = 0;
+	int j = 0;
+	string current_word;
+	string ending_word_from;
+	while (!skaz.eof() or ska == true)
+	{
+		int j = 0;
+		skaz >> ending;
+		int size_endig = ending.size();
+		bool word_less_ending = false;// слово меньше окончания 
+		while (j < piece_of_sentence.size())
+		{
+			current_word = piece_of_sentence[j];
+			if (j == piece_of_sentence.size() - 1)
+			{
+				current_word.erase(current_word.end() - 1);
+			}
+			if (current_word.size() <= ending.size())
+			{
+				++j;
+			}
+			else
+			{
+				ending_word_from = current_word.substr(current_word.size() - size_endig, size_endig);//кладем в переменную строку с окончанием текущео слова
+				if (ending == ending_word_from)
+				{
+					ska = side_of_podl(piece_of_sentence, j);//возвращаем true если нашли подлежащее
+					if (ska == true)
+					{
+						return true;
+					}
+					//вызываем функцию в которой будем искать с какой стороны находится подлежащее слева или справа сначала смотрим нет ли точки или не конец предлежния слева или справа, а мб и вообще с двух сторон запятые. вызывая, проверку наличия предлога и в случае если его нет проверяем существительное слева и справа.					}
+				}
+				++j;
+			}
+		}
+	}
+	skaz.close();
+	return ska;
+}
+
+bool side_of_podl(vector <string>& piece_of_sentence, int poz_skaz)
+{
+	if (piece_of_sentence.size() <= 1)//если в векторе одно слово
+	{
+		return false;
+	}
+	if (poz_skaz == 0)
+	{
+		isc_podl.push_back(piece_of_sentence[poz_skaz + 1]);//если это начало предложения, то тогда второе слово подлежащее
+		return true;
+	}
+	if (poz_skaz == piece_of_sentence.size() - 1)
+	{
+		isc_podl.push_back(piece_of_sentence[poz_skaz - 1]);//если это начало предложения, то тогда второе слово подлежащее
+		return true;
+	}
+	else
+	{
+		ifstream predlog;
+		predlog.open("предлоги.txt");
+		string predlog_f_f;//здесь будет хранится  предлог из файла
+		if (!predlog.is_open()) {cout << "Файл местоимений не открыт" << endl;}
+		while (!predlog.eof())
+		{
+			int j = 0;
+			predlog >> predlog_f_f;
+			while (j < piece_of_sentence.size())
+			{
+				if (predlog_f_f == piece_of_sentence[j])//добавить типо расстояние до нашего сказуемного равное или меньшее 0
+				{
+					if (j < poz_skaz)
+					{
+						isc_podl.push_back(piece_of_sentence[poz_skaz + 1]);
+
+						return true;
+					}
+					if (j > poz_skaz)
+					{
+						isc_podl.push_back(piece_of_sentence[poz_skaz - 1]);
+						return true;
+					}
+				}
+				++j;
+			}
+		}
+		
+	}
+	                                                                 //проверить существительное в случае чего 
+	return false;
+}
+
+
+
+//switch (size_endig)
+		//{
+		//case 2:
+		//	while (j < piece_of_sentence.size())
+		//	{
+		//		current_word = piece_of_sentence[j];
+		//		if (current_word.size() <= ending.size())
+		//		{
+		//			++j;
+		//		}
+		//		else
+		//		{
+		//			ending_word_from = current_word.substr(current_word.size() - 2, 2);//кладем в переменную строку с окончанием текущео слова
+		//			if (ending == ending_word_from)
+		//			{
+		//				ska = side_of_podl(piece_of_sentence, j);//возвращаем true если нашли подлежащее
+		//				//вызываем функцию в которой будем искать с какой стороны находится подлежащее слева или справа сначала смотрим нет ли точки или не конец предлежния слева или справа, а мб и вообще с двух сторон запятые. вызывая, проверку наличия предлога и в случае если его нет проверяем существительное слева и справа.					}
+		//			}
+		//			++j;
+		//		}
+		//		 	
+		//	}
+		//	break;
+		//case 3:
+		//	while (j < piece_of_sentence.size())
+		//	{
+		//		current_word = piece_of_sentence[j];
+		//		if (current_word.size() <= ending.size()){++j;}
+		//		else
+		//		{
+		//			ending_word_from = current_word.substr(current_word.size() - 3, 2);//кладем в переменную строку с окончанием текущео слова
+		//			if (ending == ending_word_from)
+		//			{
+		//				ska = side_of_podl(piece_of_sentence, j);//возвращаем true если нашли подлежащее
+		//				//вызываем функцию в которой будем искать с какой стороны находится подлежащее слева или справа сначала смотрим нет ли точки или не конец предлежния слева или справа, а мб и вообще с двух сторон запятые. вызывая, проверку наличия предлога и в случае если его нет проверяем существительное слева и справа.					}
+		//			}
+		//			++j;
+		//		}
+
+		//	}
+		//	break;
+		//case 4:
+		//	while (j < piece_of_sentence.size())
+		//	{
+		//		current_word = piece_of_sentence[j];
+		//		if (current_word.size() <= ending.size())
+		//		{
+		//			++j;
+		//		}
+		//		else
+		//		{
+		//			ending_word_from = current_word.substr(current_word.size() - 4, 2);//кладем в переменную строку с окончанием текущео слова
+		//			if (ending == ending_word_from)
+		//			{
+		//				ska = side_of_podl(piece_of_sentence, j);//возвращаем true если нашли подлежащее
+		//				//вызываем функцию в которой будем искать с какой стороны находится подлежащее слева или справа сначала смотрим нет ли точки или не конец предлежния слева или справа, а мб и вообще с двух сторон запятые. вызывая, проверку наличия предлога и в случае если его нет проверяем существительное слева и справа.					}
+		//			}
+		//			++j;
+		//		}
+
+		//	}
+		//	break;
+		//}
